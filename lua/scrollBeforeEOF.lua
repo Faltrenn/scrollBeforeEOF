@@ -39,3 +39,5 @@ M.setup = function()
         end,
     })
 end
+
+return M

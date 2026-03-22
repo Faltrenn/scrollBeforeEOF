@@ -1,3 +1,5 @@
+local M = {}
+
 local function get_win_info()
     return vim.fn.getwininfo(vim.api.nvim_get_current_win())[1]
 end
@@ -28,10 +30,12 @@ end
 
 local scroll_group = vim.api.nvim_create_augroup("ScrollEOF", { clear = true })
 
-vim.api.nvim_create_autocmd({ "CursorMoved" }, {
-    group = scroll_group,
-    pattern = "*",
-    callback = function()
-        scroll_eof()
-    end,
-})
+M.setup = function()
+    vim.api.nvim_create_autocmd({ "CursorMoved" }, {
+        group = scroll_group,
+        pattern = "*",
+        callback = function()
+            scroll_eof()
+        end,
+    })
+end

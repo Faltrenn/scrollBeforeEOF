@@ -1,36 +1,38 @@
 local M = {}
 
-local function get_win_info()
-    return vim.fn.getwininfo(vim.api.nvim_get_current_win())[1]
-end
-
-local function get_virtual_empty_lines()
-    local total_lines = vim.api.nvim_buf_line_count(0)
-    local win_info = get_win_info()
-    local lines_of_text_visible = math.max(0, total_lines - win_info.topline + 1)
-    return math.max(0, win_info.height - lines_of_text_visible)
+local function get_line_end_win_pos(line_number)
+    local last_col = vim.fn.col({line_number, '$'})
+    return vim.fn.screenpos(0, line_number, last_col)
 end
 
 local scroll_eof = function()
-    local win_half_height = math.floor(get_win_info().height / 2)
-    local offset = vim.o.scrolloff < win_half_height and vim.o.scrolloff or win_half_height
-    local current_row = vim.api.nvim_win_get_cursor(0)[1]
-    local total_rows = vim.api.nvim_buf_line_count(0)
-    local blank_lines = get_virtual_empty_lines()
+    local win_id = vim.api.nvim_get_current_win()
+    local win_info = vim.fn.getwininfo(win_id)[1]
+    local win_safe_scrolloff = math.floor((win_info.height - 1) / 2)
 
-    local lines_to_scroll = offset - (total_rows + blank_lines - current_row)
+    local line_end_pos = get_line_end_win_pos(vim.api.nvim_buf_line_count(0)).row - win_info.winrow + 1
 
-    if lines_to_scroll > 0 then
-        local ctrl_e = vim.api.nvim_replace_termcodes("<C-e>", true, true, true)
-        for i = 1, lines_to_scroll do
-            vim.api.nvim_feedkeys(ctrl_e, "n", false)
-        end
-    end
+    if line_end_pos <= 0 then return end
+
+    local offset = vim.go.scrolloff > win_safe_scrolloff and win_safe_scrolloff or vim.go.scrolloff
+
+    vim.wo.scrolloff = offset
+
+    local cursor_win_line = vim.fn.winline()
+
+    local blank_lines = win_info.height - line_end_pos
+    local lines_to_scroll = offset - (win_info.height - cursor_win_line)
+
+    if lines_to_scroll <= 0 then return end
+
+    local ctrl_e = vim.api.nvim_replace_termcodes(lines_to_scroll .. "<C-e>", true, true, true)
+    vim.api.nvim_feedkeys(ctrl_e, "n", false)
 end
 
-local scroll_group = vim.api.nvim_create_augroup("ScrollEOF", { clear = true })
 
 M.setup = function()
+    local scroll_group = vim.api.nvim_create_augroup("ScrollEOF", { clear = true })
+
     vim.api.nvim_create_autocmd({ "CursorMoved" }, {
         group = scroll_group,
         pattern = "*",

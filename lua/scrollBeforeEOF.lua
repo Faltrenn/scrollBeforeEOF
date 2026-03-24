@@ -44,9 +44,8 @@ local scroll_eof = function()
     vim.api.nvim_feedkeys(ctrl_e, "n", false)
 end
 
-
 M.setup = function()
-    local scroll_group = vim.api.nvim_create_augroup("ScrollEOF", { clear = true })
+    local scroll_group = vim.api.nvim_create_augroup({ "ScrollEOF", "VimResized" }, { clear = true })
 
     vim.api.nvim_create_autocmd({ "CursorMoved" }, {
         group = scroll_group,

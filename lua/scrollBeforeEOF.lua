@@ -1,5 +1,7 @@
 local M = {}
 
+local last_line = 0
+
 local function get_line_end_win_pos(line_number)
     local last_col = vim.fn.col({line_number, '$'})
     if last_col > 1 then last_col = last_col - 1 end
@@ -23,6 +25,18 @@ local scroll_eof = function()
 
     local blank_lines = win_info.height - line_end_pos
     local lines_to_scroll = offset - (win_info.height - cursor_win_line)
+
+    local current_line = vim.fn.line('.')
+    if vim.wo.wrap and current_line < last_line then
+        local line_content = vim.fn.getline(win_info.topline)
+        local display_width = vim.fn.strdisplaywidth(line_content)
+        local win_width = vim.api.nvim_win_get_width(0) - win_info.textoff
+
+        local lines_count = math.max(math.ceil(display_width / win_width), 1)
+        lines_to_scroll = lines_to_scroll - (lines_count -1)
+    end
+
+    last_line = current_line
 
     if lines_to_scroll <= 0 then return end
 

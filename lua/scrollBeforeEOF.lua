@@ -1,17 +1,17 @@
 local M = {}
 
 local function scroll_eof()
-    local win_id = vim.api.nvim_get_current_win() -- Window id
     local buf_id = vim.api.nvim_get_current_buf() -- Buffer id
+    local win_id = vim.api.nvim_get_current_win() -- Window id
+    local win_info = vim.fn.getwininfo(win_id)[1] -- Some info of window
+    local win_pos = win_info.winrow - 1
 
     -- Get the last line position on window
     local last_line = vim.api.nvim_buf_line_count(buf_id)
-    local win_info = vim.fn.getwininfo(win_id)[1] -- Some info of window
-
     -- This get the end of line, in case the line is wrapped
     -- max function prevent a 0 return when line is equals window width
     local last_col = math.max(1, vim.fn.col({last_line, '$'}) - 1)
-    local last_line_pos = vim.fn.screenpos(win_id, last_line, last_col).row
+    local last_line_pos = vim.fn.screenpos(win_id, last_line, last_col).row - win_pos
 
     if last_line_pos == 0 then return end -- Is not visible
 
@@ -24,7 +24,7 @@ local function scroll_eof()
 
     -- Get the position of row, this prevents to scroll when cursor get on wrapped line
     -- maybe turn this into an option of setup.
-    local cursor_pos = vim.fn.screenpos(0, vim.fn.line("."), 1).row
+    local cursor_pos = vim.fn.screenpos(win_id, vim.fn.line("."), 1).row - win_pos
     local lines_to_scroll = scrolloff - (last_line_pos + blank_lines - cursor_pos)
 
     if lines_to_scroll <= 0 then return end

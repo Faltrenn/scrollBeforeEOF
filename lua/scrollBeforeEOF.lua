@@ -1,57 +1,47 @@
 local M = {}
 
-local last_line = 0
+local function scroll_eof()
+    local win_id = vim.api.nvim_get_current_win() -- Window id
+    local buf_id = vim.api.nvim_get_current_buf() -- Buffer id
+    
+    -- Get the last line position on window
+    local last_line = vim.api.nvim_buf_line_count(buf_id)
+    local win_info = vim.fn.getwininfo(win_id)[1] -- Some info of window
 
-local function get_line_end_win_pos(line_number)
-    local last_col = vim.fn.col({line_number, '$'})
-    if last_col > 1 then last_col = last_col - 1 end
-    return vim.fn.screenpos(0, line_number, last_col)
-end
+    -- This get the end of line, in case the line is wrapped
+    -- max function prevent a 0 return when line is equals window width
+    local last_col = math.max(1, vim.fn.col({last_line, '$'}) - 1)
+    local last_line_pos = vim.fn.screenpos(win_id, last_line, last_col).row
 
-local scroll_eof = function()
-    local win_id = vim.api.nvim_get_current_win()
-    local win_info = vim.fn.getwininfo(win_id)[1]
-    local win_safe_scrolloff = math.floor((win_info.height - 1) / 2)
+    if last_line_pos == 0 then return end -- Is not visible
 
-    local line_end_pos = get_line_end_win_pos(vim.api.nvim_buf_line_count(0)).row - win_info.winrow + 1
+    -- If scrolloff if higher than window half height, change scrolloff to half window height
+    local max_scrolloff = math.floor((win_info.height - 1) / 2)
+    local scrolloff = math.min(vim.go.scrolloff, max_scrolloff)
+    vim.wo.scrolloff = scrolloff -- Without this, winrestview ignores some toplines
 
-    if line_end_pos <= 0 then return end
+    local blank_lines = win_info.height - last_line_pos
 
-    local offset = vim.go.scrolloff > win_safe_scrolloff and win_safe_scrolloff or vim.go.scrolloff
-
-    vim.wo.scrolloff = offset
-
-    local current_line = vim.fn.screenpos(0, vim.fn.line("."), 1).row
-
-    local blank_lines = win_info.height - line_end_pos
-    local lines_to_scroll = offset - (win_info.height - current_line)
-
-    if vim.wo.wrap and current_line < last_line then
-        local line_content = vim.fn.getline(win_info.topline)
-        local display_width = vim.fn.strdisplaywidth(line_content)
-        local win_width = vim.api.nvim_win_get_width(0) - win_info.textoff
-
-        local lines_count = math.max(math.ceil(display_width / win_width), 1)
-        lines_to_scroll = lines_to_scroll - (lines_count -1)
-    end
-
-    last_line = current_line
+    -- Get the position of row, this prevents to scroll when cursor get on wrapped line
+    -- maybe turn this into an option of setup.
+    local cursor_pos = vim.fn.screenpos(0, vim.fn.line("."), 1).row
+    local lines_to_scroll = scrolloff - (last_line_pos + blank_lines - cursor_pos)
 
     if lines_to_scroll <= 0 then return end
 
-    local ctrl_e = vim.api.nvim_replace_termcodes(lines_to_scroll .. "<C-e>", true, true, true)
-    vim.api.nvim_feedkeys(ctrl_e, "n", false)
+    local top_line = win_info.topline + lines_to_scroll
+
+    -- Set top line of the window, this does not move the cursor
+    vim.fn.winrestview({ topline = top_line })
 end
 
-M.setup = function()
-    local scroll_group = vim.api.nvim_create_augroup("ScrollEOF", { clear = true })
+
+M.setup = function ()
+    local scroll_group = vim.api.nvim_create_augroup("ScrollEOF", { clear = true }) -- Prevents multiple adds
 
     vim.api.nvim_create_autocmd({ "CursorMoved", "VimResized" }, {
         group = scroll_group,
-        pattern = "*",
-        callback = function()
-            scroll_eof()
-        end,
+        callback = scroll_eof,
     })
 end
 

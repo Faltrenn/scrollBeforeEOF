@@ -35,55 +35,12 @@ local function scroll_eof()
     vim.fn.winrestview({ topline = top_line })
 end
 
-local default_opts = {
-    virtual_lines = true
-}
-
-M.setup = function (opts)
-    if opts == nil then
-        opts = default_opts
-    else
-        for default_key, default_value in pairs(default_opts) do
-            if opts[default_key] == nil then
-                opts[default_key] = default_value
-            end
-        end
-    end
-
+M.setup = function ()
     local scroll_group = vim.api.nvim_create_augroup("ScrollBeforeEOF", { clear = true }) -- Prevents multiple adds
 
     vim.api.nvim_create_autocmd({ "CursorMoved", "WinResized" }, {
         group = scroll_group,
         callback = scroll_eof,
-    })
-
-    local ns = vim.api.nvim_create_namespace("ScrollBeforeEOF")
-    -- Change this to open buffer and resize window to not stack too much
-
-    if not opts.virtual_lines then return end
-
-    vim.api.nvim_create_autocmd({ "BufEnter", "WinResized" }, {
-        group = scroll_group,
-        callback = function ()
-            local buf_id = vim.api.nvim_get_current_buf()
-            local win_id = vim.api.nvim_get_current_win()
-            local win_info = vim.fn.getwininfo(win_id)[1]
-
-            local last_line = vim.api.nvim_buf_line_count(buf_id)
-
-            vim.api.nvim_buf_clear_namespace(buf_id, ns, 0, -1)
-
-            -- Add window height of virtual blank lines
-            local virt_lines = {}
-            for _ = 1, win_info.height do
-                table.insert(virt_lines, { { " ", "Normal" } }) 
-            end
-
-            vim.api.nvim_buf_set_extmark(buf_id, ns, last_line - 1, 0, {
-                virt_lines = virt_lines,
-                virt_lines_above = false,
-            })
-        end,
     })
 end
 
